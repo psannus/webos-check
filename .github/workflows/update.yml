@@ -21,17 +21,3 @@ jobs:
           fi
         env:
           URL_SECRET: ${{ secrets.REQUEST_URL }}
-
-      - name: Send email on failure
-        if: failure()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: ${{ secrets.MAIL_SERVER_ADDRESS }}
-          server_port: ${{ secrets.MAIL_SERVER_PORT }}
-          username: ${{ secrets.MAIL_USERNAME }}
-          password: ${{ secrets.MAIL_PASSWORD }}
-          to: ${{ secrets.MAIL_TO }}
-          from: WebOS Check # <user@example.com>
-          subject: WebOS dev mode extension failed
-          body: |
-            The URL ${{ secrets.REQUEST_URL }} returned response: $RESPONSE
