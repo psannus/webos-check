@@ -1,0 +1,38 @@
+name: WebOS update
+
+on:
+  schedule:
+    - cron: '0 0 1 * *' # Runs at midnight on the first day of every month
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  check_url:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Make a request to the URL
+        id: url_check
+        run: |
+          STATUS=$(curl -o /dev/null -s -w "%{http_code}" "$URL_SECRET")
+          echo "HTTP_STATUS=$STATUS" >> $GITHUB_ENV
+          if [ "$STATUS" -ne 200 ]; then
+            echo "success=false" >> $GITHUB_ENV
+          else
+            echo "success=true" >> $GITHUB_ENV
+          fi
+        env:
+          URL_SECRET: ${{ secrets.REQUEST_URL }}
+
+      - name: Send email on failure
+        if: env.success == 'false'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.MAIL_SERVER_ADDRESS }}
+          server_port: ${{ secrets.MAIL_SERVER_PORT }}
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          to: ${{ secrets.MAIL_TO }}
+          from: WebOS Check # <user@example.com>
+          subject: Extending dev mode failed
+          body: |
+            The URL returned status code: ${{ env.HTTP_STATUS }}
