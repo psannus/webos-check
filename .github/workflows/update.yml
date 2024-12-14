@@ -10,18 +10,34 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
       - name: Make a request to the URL
         id: url_check
         run: |
-          STATUS=$(curl -o /dev/null -s -w "%{http_code}" "$URL_SECRET")
-          echo "HTTP_STATUS=$STATUS" >> $GITHUB_ENV
-          if [ "$STATUS" -ne 200 ]; then
+          RESPONSE=$(curl -s "$URL_SECRET")
+          echo "Response: $RESPONSE"
+          RESULT=$(echo "$RESPONSE" | jq -r '.result')
+          ERROR_CODE=$(echo "$RESPONSE" | jq -r '.errorCode')
+          ERROR_MSG=$(echo "$RESPONSE" | jq -r '.errorMsg')
+
+          echo "RESULT=$RESULT" >> $GITHUB_ENV
+          echo "ERROR_CODE=$ERROR_CODE" >> $GITHUB_ENV
+          echo "ERROR_MSG=$ERROR_MSG" >> $GITHUB_ENV
+
+          if [ "$RESULT" != "success" ]; then
             echo "success=false" >> $GITHUB_ENV
           else
             echo "success=true" >> $GITHUB_ENV
           fi
         env:
           URL_SECRET: ${{ secrets.REQUEST_URL }}
+
+      - name: Fail if the request did not succeed
+        if: env.success == 'false'
+        run: |
+          echo "Request failed with error code: ${{ env.ERROR_CODE }} and message: ${{ env.ERROR_MSG }}"
 
       - name: Send email on failure
         if: env.success == 'false'
@@ -32,7 +48,13 @@ jobs:
           username: ${{ secrets.MAIL_USERNAME }}
           password: ${{ secrets.MAIL_PASSWORD }}
           to: ${{ secrets.MAIL_TO }}
-          from: WebOS Check # <user@example.com>
-          subject: Extending dev mode failed
+          from: Confido Check # <user@example.com>
+          subject: URL Check Failed
           body: |
-            The URL returned status code: ${{ env.HTTP_STATUS }}
+            The URL ${{ secrets.REQUEST_URL }} returned result: "${{ env.RESULT }}"
+            Error code: ${{ env.ERROR_CODE }}
+            Error message: ${{ env.ERROR_MSG }}
+
+      - name: Notify success
+        if: env.success == 'true'
+        run: echo "Request was successful."
